@@ -24,23 +24,22 @@ QUOTE_CURRENCIES = ["USDT", "USDC", "BTC", "FDUSD"]
 
 EXCHANGE_SELECTION_MODE = "dynamic"
 
-# Initial exchanges to evaluate.
-# The scanner must verify availability and data quality
-# before including an exchange in the active list.
-
 CANDIDATE_EXCHANGES = [
     "binance",
     "okx",
     "bybit",
     "kucoin",
-    "gateio",
+    "gate",
 ]
 
+# Preliminary scoring weights.
+# Historical reliability is not yet measured.
+
 EXCHANGE_RANKING = {
-    "reliability": 30,
-    "liquidity": 25,
-    "data_quality": 25,
+    "liquidity": 35,
+    "data_quality": 30,
     "market_coverage": 20,
+    "spread": 15,
 }
 
 MIN_EXCHANGE_QUALITY_SCORE = 70
@@ -108,7 +107,6 @@ ENABLE_SMART_MONEY = True
 ENABLE_EXCHANGE_FLOWS = True
 ENABLE_UNUSUAL_TRANSFERS = True
 
-# Missing data must never be treated as a positive signal.
 UNKNOWN_DATA_IS_NEUTRAL = True
 
 # ------------------------------------------
@@ -135,7 +133,6 @@ SIGNAL_STATUSES = ["BUY", "SELL", "WAIT", "AVOID"]
 RISK_LEVEL = "moderate"
 ANALYSIS_HORIZON_DAYS = [3, 30]
 
-# Analysis and alerts only. No real orders.
 ENABLE_AUTOMATIC_TRADING = False
 
 # ------------------------------------------
