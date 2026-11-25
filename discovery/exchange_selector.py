@@ -71,10 +71,57 @@ def calculate_spread_score(spreads):
         return 0
 
     average_spread = sum(spreads) / len(spreads)
-
     score = 100 - (average_spread * 100)
 
     return round(clamp(score), 2)
+
+
+def calculate_market_coverage_score(
+    market_count,
+    maximum_market_count,
+):
+    """Compare exchange market coverage with the largest candidate."""
+
+    if maximum_market_count <= 0:
+        return 0
+
+    score = (market_count / maximum_market_count) * 100
+
+    return round(clamp(score), 2)
+
+
+def calculate_data_quality_score(tickers, symbols):
+    """Measure completeness of received ticker data."""
+
+    if not symbols:
+        return 0
+
+    valid_count = 0
+
+    for symbol in symbols:
+        ticker = tickers.get(symbol)
+
+        if not ticker:
+            continue
+
+        last = ticker.get("last")
+        bid = ticker.get("bid")
+        ask = ticker.get("ask")
+        quote_volume = ticker.get("quoteVolume")
+
+        if (
+            last is not None
+            and last > 0
+            and bid is not None
+            and bid > 0
+            and ask is not None
+            and ask >= bid
+            and quote_volume is not None
+            and quote_volume >= 0
+        ):
+            valid_count += 1
+
+    return round((valid_count / len(symbols)) * 100, 2)
 
 
 def calculate_final_score(
@@ -86,7 +133,6 @@ def calculate_final_score(
     """Calculate weighted exchange score from config."""
 
     weights = EXCHANGE_RANKING
-
     total_weight = sum(weights.values())
 
     if total_weight <= 0:
@@ -175,34 +221,22 @@ def inspect_exchange(exchange_id):
 
                     spreads.append(spread_percent)
 
-        market_coverage_score = clamp(
-            (market_count / 500) * 100
+        data_quality_score = calculate_data_quality_score(
+            tickers,
+            symbols,
         )
-
-        data_quality_score = (
-            len(tickers) / len(symbols)
-        ) * 100
 
         liquidity_score = calculate_liquidity_score(volumes)
 
         spread_score = calculate_spread_score(spreads)
 
-        final_score = calculate_final_score(
-            liquidity_score,
-            data_quality_score,
-            market_coverage_score,
-            spread_score,
-        )
-
         return {
             "exchange": exchange_id,
-            "score": final_score,
+            "score": 0,
             "spot_markets": market_count,
             "liquidity_score": liquidity_score,
-            "data_quality_score": round(data_quality_score, 2),
-            "market_coverage_score": round(
-                market_coverage_score, 2
-            ),
+            "data_quality_score": data_quality_score,
+            "market_coverage_score": 0,
             "spread_score": spread_score,
             "tested_symbols": len(symbols),
             "received_tickers": len(tickers),
@@ -226,19 +260,12 @@ def select_top_exchanges():
             result = inspect_exchange(exchange_id)
 
             if result:
-                if result["score"] >= MIN_EXCHANGE_QUALITY_SCORE:
-                    results.append(result)
+                results.append(result)
 
-                    print(
-                        f"{exchange_id}: "
-                        f"Score {result['score']}"
-                    )
-                else:
-                    print(
-                        f"{exchange_id}: "
-                        f"Below minimum quality score "
-                        f"({result['score']})"
-                    )
+                print(
+                    f"{exchange_id}: "
+                    "Market data received"
+                )
             else:
                 print(
                     f"{exchange_id}: "
@@ -247,6 +274,37 @@ def select_top_exchanges():
 
         except Exception as error:
             print(f"{exchange_id}: Error - {error}")
+
+    if not results:
+        return []
+
+    maximum_market_count = max(
+        item["spot_markets"] for item in results
+    )
+
+    for item in results:
+
+        item["market_coverage_score"] = (
+            calculate_market_coverage_score(
+                item["spot_markets"],
+                maximum_market_count,
+            )
+        )
+
+        item["score"] = calculate_final_score(
+            item["liquidity_score"],
+            item["data_quality_score"],
+            item["market_coverage_score"],
+            item["spread_score"],
+        )
+
+        if item["score"] < MIN_EXCHANGE_QUALITY_SCORE:
+            item["status"] = "BELOW_THRESHOLD"
+
+    results = [
+        item for item in results
+        if item["score"] >= MIN_EXCHANGE_QUALITY_SCORE
+    ]
 
     results.sort(
         key=lambda item: item["score"],
