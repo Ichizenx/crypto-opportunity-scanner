@@ -7,16 +7,31 @@ import os
 # ==========================================
 
 PROJECT_NAME = "Crypto Opportunity Scanner"
-VERSION = "0.2.0"
+VERSION = "0.3.0"
 
 # ------------------------------------------
 # RUNTIME ENVIRONMENT
 # ------------------------------------------
 
-RUNTIME_ENVIRONMENT = os.getenv(
-    "SCANNER_ENVIRONMENT",
-    "auto"
-)
+def detect_runtime_environment():
+    configured = os.getenv("SCANNER_ENVIRONMENT", "auto").lower()
+
+    if configured in ("github", "windows", "termux"):
+        return configured
+
+    if os.getenv("GITHUB_ACTIONS") == "true":
+        return "github"
+
+    if "ANDROID_ROOT" in os.environ:
+        return "termux"
+
+    if os.name == "nt":
+        return "windows"
+
+    return "unknown"
+
+
+RUNTIME_ENVIRONMENT = detect_runtime_environment()
 
 SUPPORTED_ENVIRONMENTS = [
     "github",
@@ -61,8 +76,6 @@ EXCHANGE_RANKING = {
 
 MIN_EXCHANGE_QUALITY_SCORE = 70
 MAX_ACTIVE_EXCHANGES = 5
-
-# Minimum successful exchanges required
 MIN_SUCCESSFUL_EXCHANGES = 1
 
 # ------------------------------------------
