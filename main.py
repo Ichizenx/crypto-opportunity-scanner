@@ -6,6 +6,7 @@ from config import (
     VERSION,
     MARKET_TYPE,
     RUNTIME_ENVIRONMENT,
+    SUPPORTED_ENVIRONMENTS,
     EXCHANGE_SELECTION_MODE,
     CANDIDATE_EXCHANGES,
     VOLUME_FILTER_MODE,
@@ -21,9 +22,10 @@ def show_project_status():
     print("=" * 55)
     print(PROJECT_NAME)
     print("Version:", VERSION)
-    print("Environment:", RUNTIME_ENVIRONMENT)
     print("=" * 55)
 
+    print("Runtime environment:", RUNTIME_ENVIRONMENT)
+    print("Supported environments:", ", ".join(SUPPORTED_ENVIRONMENTS))
     print("Market:", MARKET_TYPE)
     print("Exchange mode:", EXCHANGE_SELECTION_MODE)
     print("Candidate exchanges:", ", ".join(CANDIDATE_EXCHANGES))
@@ -62,6 +64,11 @@ def run_scanner():
     show_project_status()
 
     print("\nChecking Spot exchanges using public market data...")
+
+    if RUNTIME_ENVIRONMENT not in SUPPORTED_ENVIRONMENTS:
+        print("\nERROR: Unsupported runtime environment.")
+        print("Detected:", RUNTIME_ENVIRONMENT)
+        return 1
 
     try:
         selected = select_top_exchanges()
