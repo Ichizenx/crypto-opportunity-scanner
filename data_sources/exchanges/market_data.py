@@ -189,14 +189,16 @@ class MarketDataClient:
 
         self.closed = True
 
-        try:
-            self.exchange.close()
+        close_method = getattr(self.exchange, "close", None)
 
-        except Exception as error:
-            print(
-                f"Warning: Could not close "
-                f"{self.exchange_id}: {error}"
-            )
+        if callable(close_method):
+            try:
+                close_method()
+            except Exception as error:
+                print(
+                    f"Warning: Could not close "
+                    f"{self.exchange_id}: {error}"
+                )
 
     def __enter__(self):
         self._ensure_open()
