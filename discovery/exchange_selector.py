@@ -2,25 +2,23 @@
 import math
 import ccxt
 
+from config import (
+    CANDIDATE_EXCHANGES,
+    EXCHANGE_RANKING,
+    MAX_ACTIVE_EXCHANGES,
+    MIN_EXCHANGE_QUALITY_SCORE,
+    QUOTE_CURRENCIES,
+)
 
-PREFERRED_QUOTES = ("USDT", "USDC", "USD")
 
 REFERENCE_ASSETS = (
     "BTC", "ETH", "BNB", "SOL", "XRP",
     "ADA", "DOGE", "TRX", "TON", "LINK",
     "AVAX", "DOT", "LTC", "BCH", "UNI",
-    "NEAR", "APT", "SUI"
+    "NEAR", "APT", "SUI",
 )
 
 MAX_TEST_SYMBOLS = 25
-
-CANDIDATE_EXCHANGES = (
-    "binance",
-    "okx",
-    "bybit",
-    "kucoin",
-    "gate",
-)
 
 
 def clamp(value, minimum=0, maximum=100):
@@ -32,7 +30,7 @@ def get_test_symbols(markets):
 
     symbols = []
 
-    for quote in PREFERRED_QUOTES:
+    for quote in QUOTE_CURRENCIES:
         for base in REFERENCE_ASSETS:
             symbol = f"{base}/{quote}"
             market = markets.get(symbol)
@@ -51,7 +49,7 @@ def get_test_symbols(markets):
 
 
 def calculate_liquidity_score(volumes):
-    """Calculate a preliminary liquidity score."""
+    """Calculate preliminary liquidity score."""
 
     if not volumes:
         return 0
@@ -79,8 +77,33 @@ def calculate_spread_score(spreads):
     return round(clamp(score), 2)
 
 
+def calculate_final_score(
+    liquidity_score,
+    data_quality_score,
+    market_coverage_score,
+    spread_score,
+):
+    """Calculate weighted exchange score from config."""
+
+    weights = EXCHANGE_RANKING
+
+    total_weight = sum(weights.values())
+
+    if total_weight <= 0:
+        return 0
+
+    score = (
+        liquidity_score * weights.get("liquidity", 0)
+        + data_quality_score * weights.get("data_quality", 0)
+        + market_coverage_score * weights.get("market_coverage", 0)
+        + spread_score * weights.get("spread", 0)
+    ) / total_weight
+
+    return round(clamp(score), 2)
+
+
 def inspect_exchange(exchange_id):
-    """Inspect public Spot market data."""
+    """Inspect public Spot market data from one exchange."""
 
     exchange_class = getattr(ccxt, exchange_id)
 
@@ -88,7 +111,7 @@ def inspect_exchange(exchange_id):
         "enableRateLimit": True,
         "timeout": 20000,
         "options": {
-            "defaultType": "spot"
+            "defaultType": "spot",
         },
     })
 
@@ -164,16 +187,16 @@ def inspect_exchange(exchange_id):
 
         spread_score = calculate_spread_score(spreads)
 
-        final_score = (
-            liquidity_score * 0.35
-            + data_quality_score * 0.30
-            + market_coverage_score * 0.20
-            + spread_score * 0.15
+        final_score = calculate_final_score(
+            liquidity_score,
+            data_quality_score,
+            market_coverage_score,
+            spread_score,
         )
 
         return {
             "exchange": exchange_id,
-            "score": round(final_score, 2),
+            "score": final_score,
             "spot_markets": market_count,
             "liquidity_score": liquidity_score,
             "data_quality_score": round(data_quality_score, 2),
@@ -191,7 +214,7 @@ def inspect_exchange(exchange_id):
 
 
 def select_top_exchanges():
-    """Select exchanges using observed public market data."""
+    """Select exchanges using configured settings and live data."""
 
     results = []
 
@@ -203,13 +226,19 @@ def select_top_exchanges():
             result = inspect_exchange(exchange_id)
 
             if result:
-                results.append(result)
+                if result["score"] >= MIN_EXCHANGE_QUALITY_SCORE:
+                    results.append(result)
 
-                print(
-                    f"{exchange_id}: "
-                    f"Score {result['score']}"
-                )
-
+                    print(
+                        f"{exchange_id}: "
+                        f"Score {result['score']}"
+                    )
+                else:
+                    print(
+                        f"{exchange_id}: "
+                        f"Below minimum quality score "
+                        f"({result['score']})"
+                    )
             else:
                 print(
                     f"{exchange_id}: "
@@ -217,13 +246,11 @@ def select_top_exchanges():
                 )
 
         except Exception as error:
-            print(
-                f"{exchange_id}: Error - {error}"
-            )
+            print(f"{exchange_id}: Error - {error}")
 
     results.sort(
         key=lambda item: item["score"],
-        reverse=True
+        reverse=True,
     )
 
-    return results
+    return results[:MAX_ACTIVE_EXCHANGES]
