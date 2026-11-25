@@ -1,6 +1,5 @@
 
 import math
-import ccxt
 
 from config import (
     CANDIDATE_EXCHANGES,
@@ -9,6 +8,8 @@ from config import (
     MIN_EXCHANGE_QUALITY_SCORE,
     QUOTE_CURRENCIES,
 )
+
+from data_sources.exchanges.market_data import MarketDataClient
 
 
 REFERENCE_ASSETS = (
@@ -80,7 +81,7 @@ def calculate_market_coverage_score(
     market_count,
     maximum_market_count,
 ):
-    """Compare exchange market coverage with the largest candidate."""
+    """Compare exchange coverage with the largest candidate."""
 
     if maximum_market_count <= 0:
         return 0
@@ -149,49 +150,33 @@ def calculate_final_score(
 
 
 def inspect_exchange(exchange_id):
-    """Inspect public Spot market data from one exchange."""
+    """Inspect public Spot market data through shared client."""
 
-    exchange_class = getattr(ccxt, exchange_id)
+    with MarketDataClient(exchange_id) as client:
 
-    exchange = exchange_class({
-        "enableRateLimit": True,
-        "timeout": 20000,
-        "options": {
-            "defaultType": "spot",
-        },
-    })
+        markets = client.load_spot_markets()
 
-    try:
-        markets = exchange.load_markets()
-
-        spot_markets = {
-            symbol: market
-            for symbol, market in markets.items()
-            if market.get("spot")
-            and market.get("active") is not False
-        }
-
-        market_count = len(spot_markets)
+        market_count = len(markets)
 
         if market_count == 0:
             return None
 
-        symbols = get_test_symbols(spot_markets)
+        symbols = get_test_symbols(markets)
 
         if not symbols:
             return None
 
-        tickers = {}
+        tickers = client.get_tickers(
+            symbols,
+            fallback_limit=8,
+        )
 
-        try:
-            tickers = exchange.fetch_tickers(symbols)
-
-        except Exception:
-            for symbol in symbols[:8]:
-                try:
-                    tickers[symbol] = exchange.fetch_ticker(symbol)
-                except Exception:
-                    continue
+        if client.last_ticker_errors:
+            print(
+                f"{exchange_id}: "
+                f"{len(client.last_ticker_errors)} "
+                "ticker request error(s)"
+            )
 
         volumes = []
         spreads = []
@@ -243,12 +228,9 @@ def inspect_exchange(exchange_id):
             "status": "OK",
         }
 
-    finally:
-        exchange.close()
-
 
 def select_top_exchanges():
-    """Select exchanges using configured settings and live data."""
+    """Select exchanges using shared client and live market data."""
 
     results = []
 
