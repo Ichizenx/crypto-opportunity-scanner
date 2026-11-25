@@ -3,10 +3,8 @@ import math
 import ccxt
 
 
-# Quote currencies used for market comparison
 PREFERRED_QUOTES = ("USDT", "USDC", "USD")
 
-# Representative assets for checking market data quality
 REFERENCE_ASSETS = (
     "BTC", "ETH", "BNB", "SOL", "XRP",
     "ADA", "DOGE", "TRX", "TON", "LINK",
@@ -15,6 +13,14 @@ REFERENCE_ASSETS = (
 )
 
 MAX_TEST_SYMBOLS = 25
+
+CANDIDATE_EXCHANGES = (
+    "binance",
+    "okx",
+    "bybit",
+    "kucoin",
+    "gate",
+)
 
 
 def clamp(value, minimum=0, maximum=100):
@@ -29,7 +35,6 @@ def get_test_symbols(markets):
     for quote in PREFERRED_QUOTES:
         for base in REFERENCE_ASSETS:
             symbol = f"{base}/{quote}"
-
             market = markets.get(symbol)
 
             if (
@@ -46,7 +51,7 @@ def get_test_symbols(markets):
 
 
 def calculate_liquidity_score(volumes):
-    """Score observed quote trading volumes."""
+    """Calculate a preliminary liquidity score."""
 
     if not volumes:
         return 0
@@ -56,14 +61,13 @@ def calculate_liquidity_score(volumes):
     if average_volume <= 0:
         return 0
 
-    # Logarithmic score avoids excessive influence from one large market.
     score = (math.log10(average_volume + 1) / 8) * 100
 
     return round(clamp(score), 2)
 
 
 def calculate_spread_score(spreads):
-    """Score observed bid-ask spreads."""
+    """Calculate score from observed bid-ask spreads."""
 
     if not spreads:
         return 0
@@ -76,7 +80,7 @@ def calculate_spread_score(spreads):
 
 
 def inspect_exchange(exchange_id):
-    """Inspect one exchange using public Spot market data."""
+    """Inspect public Spot market data."""
 
     exchange_class = getattr(ccxt, exchange_id)
 
@@ -112,8 +116,8 @@ def inspect_exchange(exchange_id):
 
         try:
             tickers = exchange.fetch_tickers(symbols)
+
         except Exception:
-            # Fallback for exchanges without batch ticker support.
             for symbol in symbols[:8]:
                 try:
                     tickers[symbol] = exchange.fetch_ticker(symbol)
@@ -139,13 +143,14 @@ def inspect_exchange(exchange_id):
                 and bid > 0
                 and ask >= bid
             ):
-                mid_price = (bid + ask) / 2
+                mid_price = (ask + bid) / 2
 
-                spread_percent = (
-                    (ask - bid) / mid_price
-                ) * 100
+                if mid_price > 0:
+                    spread_percent = (
+                        (ask - bid) / mid_price
+                    ) * 100
 
-                spreads.append(spread_percent)
+                    spreads.append(spread_percent)
 
         market_coverage_score = clamp(
             (market_count / 500) * 100
@@ -159,8 +164,6 @@ def inspect_exchange(exchange_id):
 
         spread_score = calculate_spread_score(spreads)
 
-        # Reliability is not assigned an invented score.
-        # It requires historical uptime and failure-rate data.
         final_score = (
             liquidity_score * 0.35
             + data_quality_score * 0.30
@@ -188,19 +191,11 @@ def inspect_exchange(exchange_id):
 
 
 def select_top_exchanges():
-    """Select exchanges based on observed public market data."""
-
-    candidates = (
-        "binance",
-        "okx",
-        "bybit",
-        "kucoin",
-        "gateio",
-    )
+    """Select exchanges using observed public market data."""
 
     results = []
 
-    for exchange_id in candidates:
+    for exchange_id in CANDIDATE_EXCHANGES:
 
         print(f"\nChecking {exchange_id}...")
 
@@ -209,15 +204,22 @@ def select_top_exchanges():
 
             if result:
                 results.append(result)
+
                 print(
                     f"{exchange_id}: "
                     f"Score {result['score']}"
                 )
+
             else:
-                print(f"{exchange_id}: No usable Spot data")
+                print(
+                    f"{exchange_id}: "
+                    "No usable Spot data"
+                )
 
         except Exception as error:
-            print(f"{exchange_id}: Error - {error}")
+            print(
+                f"{exchange_id}: Error - {error}"
+            )
 
     results.sort(
         key=lambda item: item["score"],
