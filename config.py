@@ -7,7 +7,22 @@ import os
 # ==========================================
 
 PROJECT_NAME = "Crypto Opportunity Scanner"
-VERSION = "0.1.0"
+VERSION = "0.2.0"
+
+# ------------------------------------------
+# RUNTIME ENVIRONMENT
+# ------------------------------------------
+
+RUNTIME_ENVIRONMENT = os.getenv(
+    "SCANNER_ENVIRONMENT",
+    "auto"
+)
+
+SUPPORTED_ENVIRONMENTS = [
+    "github",
+    "windows",
+    "termux",
+]
 
 # ------------------------------------------
 # MARKET SETTINGS
@@ -16,7 +31,12 @@ VERSION = "0.1.0"
 MARKET_TYPE = "spot"
 ENABLE_FUTURES = False
 
-QUOTE_CURRENCIES = ["USDT", "USDC", "BTC", "FDUSD"]
+QUOTE_CURRENCIES = [
+    "USDT",
+    "USDC",
+    "BTC",
+    "FDUSD",
+]
 
 # ------------------------------------------
 # EXCHANGE DISCOVERY
@@ -25,15 +45,12 @@ QUOTE_CURRENCIES = ["USDT", "USDC", "BTC", "FDUSD"]
 EXCHANGE_SELECTION_MODE = "dynamic"
 
 CANDIDATE_EXCHANGES = [
-    "binance",
     "okx",
-    "bybit",
     "kucoin",
     "gate",
+    "binance",
+    "bybit",
 ]
-
-# Preliminary scoring weights.
-# Historical reliability is not yet measured.
 
 EXCHANGE_RANKING = {
     "liquidity": 35,
@@ -44,6 +61,9 @@ EXCHANGE_RANKING = {
 
 MIN_EXCHANGE_QUALITY_SCORE = 70
 MAX_ACTIVE_EXCHANGES = 5
+
+# Minimum successful exchanges required
+MIN_SUCCESSFUL_EXCHANGES = 1
 
 # ------------------------------------------
 # DATA SOURCES
@@ -75,7 +95,12 @@ MAX_SPREAD_PERCENT = 0.50
 # TECHNICAL ANALYSIS
 # ------------------------------------------
 
-TIMEFRAMES = ["15m", "1h", "4h", "1d"]
+TIMEFRAMES = [
+    "15m",
+    "1h",
+    "4h",
+    "1d",
+]
 
 ENABLE_ICHIMOKU = True
 ENABLE_ICT = True
@@ -124,7 +149,12 @@ SCORING_WEIGHTS = {
 MAX_FINAL_CANDIDATES = 10
 MAX_DEEP_ANALYSIS = 3
 
-SIGNAL_STATUSES = ["BUY", "SELL", "WAIT", "AVOID"]
+SIGNAL_STATUSES = [
+    "BUY",
+    "SELL",
+    "WAIT",
+    "AVOID",
+]
 
 # ------------------------------------------
 # RISK SETTINGS
