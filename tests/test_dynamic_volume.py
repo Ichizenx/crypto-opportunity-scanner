@@ -14,6 +14,11 @@ from discovery.exchange_selector import (
     calculate_final_score,
 )
 
+from config import (
+    detect_runtime_environment,
+    SUPPORTED_ENVIRONMENTS,
+)
+
 
 # ==========================================
 # DYNAMIC VOLUME TESTS
@@ -140,3 +145,32 @@ def test_final_score_zero():
     result = calculate_final_score(0, 0, 0, 0)
 
     assert result == 0.0
+
+
+# ==========================================
+# RUNTIME ENVIRONMENT TESTS
+# ==========================================
+
+@pytest.mark.parametrize(
+    "environment",
+    ["github", "windows", "termux"],
+)
+def test_supported_runtime_environments(monkeypatch, environment):
+    monkeypatch.setenv("SCANNER_ENVIRONMENT", environment)
+
+    assert detect_runtime_environment() == environment
+
+
+def test_github_environment_detection(monkeypatch):
+    monkeypatch.delenv("SCANNER_ENVIRONMENT", raising=False)
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+
+    assert detect_runtime_environment() == "github"
+
+
+def test_supported_environments_list():
+    assert set(SUPPORTED_ENVIRONMENTS) == {
+        "github",
+        "windows",
+        "termux",
+    }
